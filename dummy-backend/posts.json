@@ -1,0 +1,8 @@
+{
+  "posts": [
+    { "body": "text 4", "author": "p4", "id": "0.3166022474292294" },
+    { "body": "post 3", "author": "person 3", "id": "0.6344084422321568" },
+    { "body": "post 2", "author": "person 2", "id": "0.39787933881977056" },
+    { "body": "post 1", "author": "person 1", "id": "0.8140347900505627" }
+  ]
+}
