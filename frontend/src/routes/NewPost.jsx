@@ -51,7 +51,7 @@ export async function action({ request }) {
   const formData = await request.formData();
   const postData = Object.fromEntries(formData);
   console.log(postData);
-  await fetch("http://localhost:8080/posts", {
+  await fetch("https://react-posters.onrender.com/posts", {
     method: "POST",
     body: JSON.stringify(postData),
     headers: {
