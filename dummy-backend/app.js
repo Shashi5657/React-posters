@@ -1,49 +1,60 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
-const { v4: uuidv4 } = require("uuid");
+const path = require("path");
+const jwt = require("jsonwebtoken");
+const secretKey = "Shashi@11";
 
-// const { getStoredPosts, storePosts } = require("./data/posts");
 const cookieParser = require("cookie-parser");
 
 const app = express();
-
 app.use(express.json());
 app.use(cookieParser());
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const sessionIdToUserMap = new Map();
-
-function setUser(id, user) {
-  sessionIdToUserMap.set(id, user);
-}
-
-function getUser(id) {
-  sessionIdToUserMap.get(id);
-}
-
-async function restrictToLoggedinUserOnly(req, res, next) {
-  const userUid = await req.cookies?.uid;
-  console.log(userUid, "userUid");
-  if (!userUid) {
-    return res.redirect("/login");
-  }
-
-  const user = sessionIdToUserMap.get(id);
-  console.log(user, "user");
-
-  if (!user) return res.redirect("/login");
-
-  req.user = user;
-  next();
-}
-
 mongoose
   .connect("mongodb://127.0.0.1:27017/twist-posts")
   .then(() => console.log("mongoDb connected"))
   .catch((err) => console.log("mongo error", err));
+
+function setUser(user) {
+  return jwt.sign(
+    {
+      _id: user._id,
+      email: user.email,
+    },
+    secretKey,
+    { expiresIn: "1h" }
+  );
+}
+
+function getUser(token) {
+  try {
+    return jwt.verify(token, secretKey);
+  } catch (error) {
+    return null;
+  }
+}
+
+async function restrictToLoggedinUserOnly(req, res, next) {
+  const userUid = req.cookies?.uid;
+  console.log(userUid, "userUid");
+  if (!userUid) {
+    // return res.status(401).json({ message: "Unauthorized" });
+    return res.redirect("/login");
+  }
+
+  const user = getUser(userUid);
+  if (!user) {
+    // return res.status(401).json({ message: "Unauthorized" });
+    return res.redirect("/login");
+  }
+
+  req.user = user;
+  next();
+}
 
 //schema for registration
 const userSignupSchema = mongoose.Schema({
@@ -98,34 +109,21 @@ app.use((req, res, next) => {
   next();
 });
 
+//signup api
 app.post("/signup", async (req, res) => {
-  const { firstName, lastName, email, password, confirmPassword } = req.body;
+  const { firstName, lastName, user, password, confirmPassword } = req.body;
   const userData = await UserSignup.create({
     firstName,
     lastName,
-    email,
+    user,
     password,
     confirmPassword,
   });
   console.log(userData);
   return res.json({ staus: "success" });
-  // return res.render("/posts");
 });
 
-// app.get("/loginn", async (req, res) => {
-//   const user = await UserSignup.findOne({
-//     email: "jagad@gmail.com",
-//     password: "jagad",
-//   });
-//   if (!user) {
-//     return res.status(400).json({ message: "No user found, Please signup" });
-//   }
-//   const sessionId = uuidv4();
-//   setUser(sessionId, user);
-//   res.cookie("uid", sessionId);
-//   return res.json({ message: "Login successful" });
-// });
-
+//login api
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   const user = await UserSignup.findOne({
@@ -135,23 +133,55 @@ app.post("/login", async (req, res) => {
   if (!user) {
     return res.status(400).json({ message: "No user found, Please signup" });
   }
-  const sessionId = uuidv4();
-  console.log(sessionId, "sessionid");
-  sessionIdToUserMap.set(sessionId, user);
-  console.log(sessionIdToUserMap.get(sessionId), "getsession");
-  res.cookie("uid", sessionId);
-  return res.json({ message: "Login successful" });
+  const token = jwt.sign(
+    {
+      _id: user._id,
+      email: user.email,
+    },
+    secretKey,
+    { expiresIn: "1h" }
+  );
+  res.json({ token });
+  // return res.status(200).json({ message: "Login successful" });
 });
 
-// restrictToLoggedinUserOnly
-app.get("/posts", restrictToLoggedinUserOnly, async (req, res) => {
-  const allPosts = await Post.find({});
+const authenticatedToken = (req, res, next) => {
+  const token = req;
+  console.log(token, "toke");
+};
 
-  res.json({ posts: allPosts });
+//posts api
+app.get("/posts", async (req, res) => {
+  res.json({ message: "this is post request", user: req.user });
+  // console.log("Entered in Redirect");
+
+  // const allPosts = await Post.find({});
+  // res.render("posts", {
+  //   posts: allPosts,
+  // });
 
   // const storedPosts = await getStoredPosts();
   // await new Promise((resolve, reject) => setTimeout(() => resolve(), 1500));
 });
+
+// app.get("/posts", async (req, res) => {
+//   console.log("Entered in Redirect");
+
+//   const uid = req.cookies.uid;
+//   console.log(uid, "uid");
+//   if (!uid) {
+//     return res.status(401).json({ message: "Unauthorized" });
+//   }
+
+//   const user = getUser(uid);
+//   console.log(user, "user");
+//   if (!user) {
+//     return res.status(401).json({ message: "Unauthorized" });
+//   }
+
+//   const allPosts = await Post.find({});
+//   return res.status(200).json({ posts: allPosts });
+// });
 
 app.get("/posts/:id", async (req, res) => {
   const allPosts = await Post.find({});
@@ -161,7 +191,6 @@ app.get("/posts/:id", async (req, res) => {
 });
 
 app.post("/posts", async (req, res) => {
-  console.log(req.body);
   const { author, body } = req.body;
 
   if (!author || !body) {
@@ -195,6 +224,20 @@ app.delete("/posts/:id", async (req, res) => {
 });
 
 app.listen(8081);
+
+// app.get("/loginn", async (req, res) => {
+//   const user = await UserSignup.findOne({
+//     email: "jagad@gmail.com",
+//     password: "jagad",
+//   });
+//   if (!user) {
+//     return res.status(400).json({ message: "No user found, Please signup" });
+//   }
+//   const sessionId = uuidv4();
+//   setUser(sessionId, user);
+//   res.cookie("uid", sessionId);
+//   return res.json({ message: "Login successful" });
+// });
 
 // const express = require("express");
 // const bodyParser = require("body-parser");

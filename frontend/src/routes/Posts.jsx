@@ -21,6 +21,7 @@ import PostsList from "../components/PostsList";
 // import MainHeader from "./components/MainHeader";
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
+import { redirect } from "react-router-dom";
 
 function Posts() {
   const [modalIsVisible, setModalIsVisible] = useState(false);
@@ -47,6 +48,14 @@ export default Posts;
 
 export async function loader() {
   const response = await fetch("http://localhost:8081/posts");
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      return redirect("/login");
+    }
+    throw new Error("Failed to fetch posts");
+  }
+
   const data = await response.json();
   return data.posts;
 }

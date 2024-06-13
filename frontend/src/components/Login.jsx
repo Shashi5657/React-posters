@@ -1,14 +1,10 @@
 import React, { useRef } from "react";
-import { redirect, useNavigate } from "react-router-dom";
-
-
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
-
   const emailRef = useRef();
   const passWordRef = useRef();
-
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -27,15 +23,21 @@ const Login = () => {
       },
       body: JSON.stringify(payload),
     });
-    const json = await response.json();
-    navigate('/posts')
-    console.log(json);
+
+    if (response.ok) {
+      navigate("/posts");
+    } else {
+      const json = await response.json();
+      console.error(json.message);
+      // handle error (e.g., show error message to the user)
+    }
   };
+
   return (
-    <form onSubmit={handleSubmit}>
+    <form action="/posts" onSubmit={handleSubmit}>
       <input type="email" ref={emailRef} />
-      <input type="text" ref={passWordRef} />
-      <button type="submit">login</button>
+      <input type="password" ref={passWordRef} />
+      <button type="submit">Login</button>
     </form>
   );
 };
