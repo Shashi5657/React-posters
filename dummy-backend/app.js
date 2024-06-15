@@ -70,6 +70,20 @@ const postSchema = mongoose.Schema({
 //model
 const Post = mongoose.model("post", postSchema);
 
+//signup api
+app.post("/signup", async (req, res) => {
+  const { firstName, lastName, user, password, confirmPassword } = req.body;
+  const userData = await UserSignup.create({
+    firstName,
+    lastName,
+    user,
+    password,
+    confirmPassword,
+  });
+  console.log(userData);
+  return res.json({ staus: "success" });
+});
+
 app.get('/posts', async (req, res) => {
   const storedPosts = await getStoredPosts();
   // await new Promise((resolve, reject) => setTimeout(() => resolve(), 1500));
@@ -83,15 +97,33 @@ app.get('/posts/:id', async (req, res) => {
 });
 
 app.post('/posts', async (req, res) => {
-  const existingPosts = await getStoredPosts();
-  const postData = req.body;
-  const newPost = {
-    ...postData,
-    id: Math.random().toString(),
-  };
-  const updatedPosts = [newPost, ...existingPosts];
-  await storePosts(updatedPosts);
-  res.status(201).json({ message: 'Stored new post.', post: newPost });
+
+  const { author, body } = req.body;
+
+  if (!author || !body) {
+    return res.status(400).json({ msg: "author & body are required" });
+  }
+  try {
+    const newPost = await Post.create({ author, body });
+    return res.status(201).json({ message: "success" });
+    const updatedPosts = [newPost, ...existingPosts];
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "An error occurred", error: error.message });
+  }
+
+  
+
+  // const existingPosts = await getStoredPosts();
+  // const postData = req.body;
+  // const newPost = {
+  //   ...postData,
+  //   id: Math.random().toString(),
+  // };
+  // const updatedPosts = [newPost, ...existingPosts];
+  // await storePosts(updatedPosts);
+  // res.status(201).json({ message: 'Stored new post.', post: newPost });
 });
 
 app.listen(8080);
