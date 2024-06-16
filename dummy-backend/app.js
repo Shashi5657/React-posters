@@ -1,9 +1,8 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const mongoose = require('mongoose');
-
-const { getStoredPosts, storePosts } = require('./data/posts');
-
+const express = require("express");
+const bodyParser = require("body-parser");
+const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken");
+const secretKey = 'Shashi@1'
 const app = express();
 
 app.use(bodyParser.json());
@@ -12,9 +11,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   // Attach CORS headers
   // Required when using a detached backend (that runs on a different domain)
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   next();
 });
 
@@ -23,7 +22,7 @@ mongoose
   .then(() => console.log("mongoDb connected"))
   .catch((err) => console.log("mongo error", err));
 
-  //schema for registration
+//schema for registration
 const userSignupSchema = mongoose.Schema({
   firstName: {
     type: String,
@@ -46,9 +45,6 @@ const userSignupSchema = mongoose.Schema({
     type: String,
     required: true,
   },
-  token : {
-    type : String
-  }
 });
 
 //model for registration
@@ -72,32 +68,70 @@ const Post = mongoose.model("post", postSchema);
 
 //signup api
 app.post("/signup", async (req, res) => {
-  const { firstName, lastName, user, password, confirmPassword } = req.body;
-  const userData = await UserSignup.create({
+  const { firstName, lastName, email, password, confirmPassword } = req.body;
+  
+  await UserSignup.create({
     firstName,
     lastName,
-    user,
+    email,
     password,
     confirmPassword,
   });
-  console.log(userData);
+
   return res.json({ staus: "success" });
 });
 
-app.get('/posts', async (req, res) => {
-  const storedPosts = await getStoredPosts();
-  // await new Promise((resolve, reject) => setTimeout(() => resolve(), 1500));
-  res.json({ posts: storedPosts });
+async function restrictToLoggedinUserOnly(req, res, next) {
+  const userUid = req.cookies?.uid;
+  console.log(userUid, "userUid");
+  if (!userUid) {
+    return res.status(401).json({ message: "Unauthorized" });
+    // return res.redirect("/login");
+  }
+    const user = jwt.verify(token, secretKey) (userUid);
+  if (!user) {
+    return res.status(401).json({ message: "Unauthorized" });
+    // return res.redirect("/login");
+  }
+
+  req.user = user;
+  next();
+}
+
+//login api
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+  const user = await UserSignup.findOne({ email, password });
+
+  if (!user) {
+    return res.status(400).json({ message: "No user found, Please signup" });
+  }
+
+  const token = jwt.sign(
+    {
+      email: email,
+      password: password,
+    },
+    secretKey,
+    { expiresIn: "1h" }
+  );
+  console.log(token)
+  // res.json({ token });
+  return res.status(200).json({ message: "Login successful" });
 });
 
-app.get('/posts/:id', async (req, res) => {
+app.get("/posts", async (req, res) => {
+  const allPosts = await Post.find({});
+  res.json({ posts: allPosts });
+});
+
+app.get("/posts/:id", async (req, res) => {
   const storedPosts = await getStoredPosts();
   const post = storedPosts.find((post) => post.id === req.params.id);
   res.json({ post });
 });
 
-app.post('/posts', async (req, res) => {
-
+app.post("/posts", async (req, res) => {
   const { author, body } = req.body;
 
   if (!author || !body) {
@@ -106,14 +140,11 @@ app.post('/posts', async (req, res) => {
   try {
     const newPost = await Post.create({ author, body });
     return res.status(201).json({ message: "success" });
-    const updatedPosts = [newPost, ...existingPosts];
   } catch (error) {
     return res
       .status(500)
       .json({ message: "An error occurred", error: error.message });
   }
-
-  
 
   // const existingPosts = await getStoredPosts();
   // const postData = req.body;
@@ -127,50 +158,6 @@ app.post('/posts', async (req, res) => {
 });
 
 app.listen(8080);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
